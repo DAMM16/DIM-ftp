@@ -1,0 +1,61 @@
+/* Parametros del material */
+real E, nu, mu, lambda, rho;
+E = 2E11; nu = 0.26; rho = 7850.0;
+mu = E/(2.*(1.+nu)); lambda = E*nu/((1.+nu)*(1.-2.*nu));
+
+/* Macros utiles */
+macro e11(w1,w2) dx(w1) //
+macro e12(w1,w2) ( .5*(dy(w1)+dx(w2)) ) //
+macro e21(w1,w2) ( .5*(dx(w2)+dy(w1)) ) //
+macro e22(w1,w2) dy(w2) //
+macro div(w1,w2) (dx(w1)+dy(w2)) //
+
+/* Descripcion del contorno y generacion de la malla */
+border b1(t=0,10){ x=t; y=0;}
+border b2(t=0,1){ x=10; y=t;}
+border b3(t=0,10){ x=10-t; y=1;}
+border b4(t=0,1){ x=0; y=1-t;}
+
+mesh Th = buildmesh(b1(50)+b2(5)+b3(50)+b4(5));
+
+plot(Th,wait=true);
+
+/* Espacio de elementos finitos y miembros del mismo. */
+fespace Vh(Th,P2);
+
+Vh u1, u2, v1, v2;
+
+/* Fuerzas aplicadas. */
+func f1 = 0.;
+func f2 = -9.8*rho;
+
+/* Formulacion del problema */
+solve elast([u1,u2],[v1,v2],solver=LU) =
+	int2d(Th)(2.*mu*(e11(u1,u2)*e11(v1,v2)
+		       + e12(u1,u2)*e12(v1,v2)
+		       + e21(u1,u2)*e21(v1,v2)
+		       + e22(u1,u2)*e12(v1,v2))
+                  + lambda*(div(u1,u2)*div(v1,v2))
+                 )
+	- int2d(Th)(f1*v1+f2*v2)
+	+ on(b4,u1=0) + on(b4,u2=0);
+
+
+/* Grafico */
+plot([u1,u2],wait=true,value=true,coef=100);
+
+mesh Th2 = movemesh(Th,[x+100*u1,y+100*u2]);
+plot(Th2,wait=true);
+
+/* Esfuerzos (en valor absoluto) */
+fespace Vh2(Th2,P2);
+
+Vh2 esf;
+
+esf = sqrt(2.*mu*( e11(u1,u2)*e11(u1,u2)
+            + e12(u1,u2)*e12(u1,u2)
+            + e21(u1,u2)*e21(u1,u2)
+            + e22(u1,u2)*e22(u1,u2))
+     + 2.*lambda*div(u1,u2)*div(u1,u2));
+
+plot(esf,wait=true,value=true);
